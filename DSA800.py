@@ -13,6 +13,11 @@ from time import sleep
 class DSA800:
 	analyzerConnected = False
 	timeout = 0
+	dev = 0
+	# ip = "169.254.63.149"
+	ip = "192.168.0.3"
+	port = 5555
+
 	def setTimeout(self, time):				self.timeout = time
 
 	def freeSpeckKeys(self):				specki.write(':SYSTem:COMMunicate:BRMT OFF|')
@@ -98,9 +103,6 @@ class DSA800:
 		dest_fn = fn.replace(".bmp","_cropped.png")
 		dest.save(dest_fn)
 		return (dest_fn)
-			
-
-
 
 	def shootAndStop(self):		
 		specki.write(":INITiate:CONTinuous 0");			
@@ -108,14 +110,32 @@ class DSA800:
 		print( "shootAndStop DONE" )
 		freeSpeckKeys()
 	def run(self):				specki.write(":INITiate:CONTinuous 1");			freeSpeckKeys()
-	def disconnect(self):		specki.close()
-	def connect(self):			specki.open()
-	def getID(self):			resp = (specki.query("*IDN?")).strip();		freeSpeckKeys();	return resp
+	def disconnect(self):		self.dev.close()
+	def connect(self):			self.dev.connect(self.ip, self.port)
+	def getID(self):			
+		# self.dev.send(b"*IDN?\n")
+		# resp = str(self.dev.recv(4096).decode("utf-8"))
+		# return resp
+		return self.tcpTxRx("*IDN?")
+	
+	def tcpTx(self, cmd):			
+		self.dev.send((cmd + '\n').encode("utf-8"))
+	
+	def tcpRx(self):			
+		# resp = str(self.dev.recv(4096).decode("utf-8"))
+		# resp = str(self.dev.recv(1024).decode("utf-8"))
+		resp = str(self.dev.recv(100).decode("utf-8"))
+		return resp
+	
+	def tcpTxRx(self, cmd):			
+		self.tcpTx(cmd)
+		return (+ self.tcpRx())
+	
+	
 	def init(self):
-		rm = pyvisa.ResourceManager('@py')
-		ip = "169.254.63.149"
-		visaAddress = "TCPIP0::" + ip + "::inst0::INSTR"
-		specki = rm.open_resource(visaAddress,chunk_size=8000,timeout=2000) # , delay=1.2)	# ... seconds
-		dev = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		dev.connect((ip, 5555))
-		analyzerConnected = True
+		# rm = pyvisa.ResourceManager('@py')
+		# visaAddress = "TCPIP0::" + ip + "::inst0::INSTR"
+		# specki = rm.open_resource(visaAddress,chunk_size=8000,timeout=2000) # , delay=1.2)	# ... seconds
+		self.dev = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.dev.connect((self.ip, self.port))
+		self.analyzerConnected = True
