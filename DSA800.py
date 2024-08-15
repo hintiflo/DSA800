@@ -1,90 +1,112 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# scripted tools for EMI 
-# latest edit: 13.06.2024
+# Class to encapsulate a Rigol DSA800 spectrum analyzer
+# with scpi commands via TCP connection
 
 import pyvisa
 import socket
 from time import sleep
 
-# >>> from DSA800 import DSA800
-# >>> dsa = DSA800()
-
 class DSA800:
 	analyzerConnected = False
 	timeout = 0
 	dev = 0
-	# ip = "169.254.63.149"
-	ip = "192.168.0.3"
+	ip = ""
 	port = 5555
 
+	def __init__(self, IP):
+		self.ip = IP
+	# def init(self):
+		self.dev = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.dev.connect((self.ip, self.port))
+		self.analyzerConnected = True
+
+	def tcpTx(self, cmd):			
+		self.dev.sendall((cmd + '\n').encode("utf-8"))
+	
+	def tcpRx(self):			
+		# resp = str(self.dev.recv(4096).decode("utf-8"))
+		# resp = str(self.dev.recv(1024).decode("utf-8"))
+		resp = str(self.dev.recv(100).decode("utf-8"))
+		return resp
+	
+	def tcpTxRx(self, cmd):			
+		self.tcpTx(cmd)
+		return (self.tcpRx())
+	
+	def disconnect(self):		
+		self.dev.close()
+		self.analyzerConnected = False
+
+	def connect(self):			
+		self.dev = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.dev.connect((self.ip, self.port))
+		self.analyzerConnected = True
+	
 	def setTimeout(self, time):				self.timeout = time
 
-	def freeSpeckKeys(self):				specki.write(':SYSTem:COMMunicate:BRMT OFF|')
-	def setSweepTime(self, period): 			specki.write(":SENSe:SWEep:TIME " + str(period));	freeSpeckKeys()
-	def getSweepTime(self): 				resp = (specki.query(":SENSe:SWEep:TIME?")).strip();	freeSpeckKeys();	return resp 
-	def setRBW(self, bw):			 			specki.write(":SENSe:BANDwidth:RESolution " + str(bw));	freeSpeckKeys()
-	def getRBW(self):		 				resp = (specki.query(":SENSe:BANDwidth:RESolution?")).strip();	freeSpeckKeys();	return resp 
-	def getMarkerState(self, marker): 		resp = (specki.query(":CALCulate:MARKer" + str(marker) + ":STATe?")).strip();	freeSpeckKeys();	return resp 
-	def getMarkerFreq(self, marker):			resp = (specki.query(":CALCulate:MARKer" + str(marker) + ":X?")).strip();	freeSpeckKeys();	return resp 
-	def setMarkerFreq(self, marker, freq):	specki.write(":CALCulate:MARKer" + str(marker) + ":X " + str(freq));	freeSpeckKeys()
-	def getMarkerValue(self, marker): 		resp = (specki.query(":CALCulate:MARKer" + str(marker) + ":Y?")).strip();	freeSpeckKeys();	return resp
-	def setMarkerOff(self, marker): 			specki.write(":CALCulate:MARKer" + str(marker) + ":STATe off");	freeSpeckKeys() 
-	def setMarkerOn(self, marker): 			specki.write(":CALCulate:MARKer" + str(marker) + ":STATe on");	freeSpeckKeys() 
+	def freeSpeckKeys(self):				self.tcpTx(':SYSTem:COMMunicate:BRMT OFF|')
+	def setSweepTime(self, period): 		self.tcpTx(":SENSe:SWEep:TIME " + str(period));	self.freeSpeckKeys()
+	def getSweepTime(self): 				resp = (self.tcpTxRx(":SENSe:SWEep:TIME?")).strip();	self.freeSpeckKeys();	return resp 
+	def setRBW(self, bw):			 		self.tcpTx(":SENSe:BANDwidth:RESolution " + str(bw));	self.freeSpeckKeys()
+	def getRBW(self):		 				resp = (self.tcpTxRx(":SENSe:BANDwidth:RESolution?")).strip();	self.freeSpeckKeys();	return resp 
+	def getMarkerState(self, marker): 		resp = (self.tcpTxRx(":CALCulate:MARKer" + str(marker) + ":STATe?")).strip();	self.freeSpeckKeys();	return resp 
+	def getMarkerFreq(self, marker):		resp = (self.tcpTxRx(":CALCulate:MARKer" + str(marker) + ":X?")).strip();	self.freeSpeckKeys();	return resp 
+	def setMarkerFreq(self, marker, freq):	self.tcpTx(":CALCulate:MARKer" + str(marker) + ":X " + str(freq));	self.freeSpeckKeys()
+	def getMarkerValue(self, marker): 		resp = (self.tcpTxRx(":CALCulate:MARKer" + str(marker) + ":Y?")).strip();	self.freeSpeckKeys();	return resp
+	def setMarkerOff(self, marker): 		self.tcpTx(":CALCulate:MARKer" + str(marker) + ":STATe off");	self.freeSpeckKeys() 
+	def setMarkerOn(self, marker): 			self.tcpTx(":CALCulate:MARKer" + str(marker) + ":STATe on");	self.freeSpeckKeys() 
 	def setMarkersOn(self):		 		
-		specki.write(":CALCulate:MARKer1:STATe on");	
-		specki.write(":CALCulate:MARKer2:STATe on");	
-		specki.write(":CALCulate:MARKer3:STATe on");	
-		specki.write(":CALCulate:MARKer4:STATe on");	
-		freeSpeckKeys() 
-	def setPreampOn(self):					specki.write(':SENSe:POWer:RF:GAIN:STATe ON');	freeSpeckKeys() 
-	def setPreampOff(self):					specki.write(':SENSe:POWer:RF:GAIN:STATe OFF');	freeSpeckKeys() 
-	def getPreampState(self):				resp = specki.query(':SENSe:POWer:RF:GAIN:STATe?').strip();	freeSpeckKeys(); return resp
-	def setDetQuasiPeak(self): 				specki.write(":SENSe:DETector:FUNCtion QPEak");	freeSpeckKeys()
-	def setDetRms(self):					specki.write(":SENSe:DETector:FUNCtion rms");	freeSpeckKeys()
-	def setDetVav(self):					specki.write(":SENSe:DETector:FUNCtion vav");	freeSpeckKeys()
-	def setDetPosPeak(self):				specki.write(":SENSe:DETector:FUNCtion pos");	freeSpeckKeys()
-	def setUnitDbvu(self):					specki.write(":UNIT:POWer dbuv");				freeSpeckKeys()
+		self.tcpTx(":CALCulate:MARKer1:STATe on");	
+		self.tcpTx(":CALCulate:MARKer2:STATe on");	
+		self.tcpTx(":CALCulate:MARKer3:STATe on");	
+		self.tcpTx(":CALCulate:MARKer4:STATe on");	
+		self.freeSpeckKeys() 
+	def setPreampOn(self):					self.tcpTx(':SENSe:POWer:RF:GAIN:STATe ON');	self.freeSpeckKeys() 
+	def setPreampOff(self):					self.tcpTx(':SENSe:POWer:RF:GAIN:STATe OFF');	self.freeSpeckKeys() 
+	def getPreampState(self):				resp = self.tcpTxRx(':SENSe:POWer:RF:GAIN:STATe?').strip();	self.freeSpeckKeys(); return resp
+	def setDetQPeak(self): 					self.tcpTx(":SENSe:DETector:FUNCtion QPEak");	self.freeSpeckKeys()
+	def setDetRms(self):					self.tcpTx(":SENSe:DETector:FUNCtion rms");		self.freeSpeckKeys()
+	def setDetVav(self):					self.tcpTx(":SENSe:DETector:FUNCtion vav");	self.freeSpeckKeys()
+	def setDetPosPeak(self):				self.tcpTx(":SENSe:DETector:FUNCtion pos");	self.freeSpeckKeys()
+	def setUnitDbvu(self):					self.tcpTx(":UNIT:POWer dbuv");				self.freeSpeckKeys()
 	def setYScale(self, scale):
 		if( 0.1 >= scale and scale <= 20): 
-			specki.write(":DISPlay:WINdow:TRACe:Y:SCALe:PDIVision " + str(scale));				freeSpeckKeys()
+			self.tcpTx(":DISPlay:WINdow:TRACe:Y:SCALe:PDIVision " + str(scale));				self.freeSpeckKeys()
 
 	def setRefLevel(self, level):
 		# if( 0.1 >= scale and scale <= 20): 
 		if( True ): 
-			specki.write(":DISPlay:WINdow:TRACe:Y:SCALe:RLEVel " + str(level));				freeSpeckKeys()
+			self.tcpTx(":DISPlay:WINdow:TRACe:Y:SCALe:RLEVel " + str(level));				self.freeSpeckKeys()
 
 	def setNRefLevel(self, level):
 		# if( 0.1 >= scale and scale <= 20): 
 		if( True ): 
-			specki.write(":DISPlay:WINdow:TRACe:Y:SCALe:NRLevel " + str(level));				freeSpeckKeys()
+			self.tcpTx(":DISPlay:WINdow:TRACe:Y:SCALe:NRLevel " + str(level));				self.freeSpeckKeys()
 
-	def getFilterEmi(self):					resp = specki.query(":SENSe:BANDwidth:EMIFilter:STATe?").strip();	freeSpeckKeys(); return resp
-	def setFilterEmi(self):					specki.write(":SENSe:BANDwidth:EMIFilter:STATe ON");				freeSpeckKeys()
-	def setFilterGauss(self):				specki.write(":SENSe:BANDwidth:EMIFilter:STATe OFF");				freeSpeckKeys()
-	def getContinous(self):					resp = specki.query(":INITiate:CONTinuous?").strip();	freeSpeckKeys(); return resp
+	def getFilterEmi(self):					resp = self.tcpTxRx(":SENSe:BANDwidth:EMIFilter:STATe?").strip();	self.freeSpeckKeys(); return resp
+	def setFilterEmi(self):					self.tcpTx(":SENSe:BANDwidth:EMIFilter:STATe ON");				self.freeSpeckKeys()
+	def setFilterGauss(self):				self.tcpTx(":SENSe:BANDwidth:EMIFilter:STATe OFF");				self.freeSpeckKeys()
+	def getContinous(self):					resp = self.tcpTxRx(":INITiate:CONTinuous?").strip();	self.freeSpeckKeys(); return resp
 
 	def screenshot(self, fn):
-		# dev.connect((ip, 5555))
+		fn = fn + ".bmp"
 		aggregateSize = 1152066
 
-		dev.send(b":PRIV:SNAP? BMP \n")
-		bemp = dev.recv(4096)
+		self.tcpTx(":PRIV:SNAP? BMP")
+		bemp = self.dev.recv(4096)
 		aggregateSize -= len(bemp)
 
 		while aggregateSize > 0:
-			rxData = dev.recv(4096)
+			rxData = self.dev.recv(4096)
 			bemp += rxData
 			aggregateSize -= len(rxData)
 
 		with open(fn, "wb") as feil:
 			feil.write(bemp[11:])
 
-		cropDSA815screens(fn)
-		# dev.shutdown(socket.SHUT_RDWR)
-		# dev.close()
-		
-		freeSpeckKeys()
+		self.cropDSA815screens(fn)
+		self.freeSpeckKeys()
 		
 	# crop screenshots from Rigol DSA815 for reporting
 	def cropDSA815screens(self, fn):	# 691 x 30
@@ -105,37 +127,10 @@ class DSA800:
 		return (dest_fn)
 
 	def shootAndStop(self):		
-		specki.write(":INITiate:CONTinuous 0");			
+		self.tcpTx(":INITiate:CONTinuous 0");			
 		sleep(float(getSweepTime()))
 		print( "shootAndStop DONE" )
-		freeSpeckKeys()
-	def run(self):				specki.write(":INITiate:CONTinuous 1");			freeSpeckKeys()
-	def disconnect(self):		self.dev.close()
-	def connect(self):			self.dev.connect(self.ip, self.port)
-	def getID(self):			
-		# self.dev.send(b"*IDN?\n")
-		# resp = str(self.dev.recv(4096).decode("utf-8"))
-		# return resp
-		return self.tcpTxRx("*IDN?")
-	
-	def tcpTx(self, cmd):			
-		self.dev.send((cmd + '\n').encode("utf-8"))
-	
-	def tcpRx(self):			
-		# resp = str(self.dev.recv(4096).decode("utf-8"))
-		# resp = str(self.dev.recv(1024).decode("utf-8"))
-		resp = str(self.dev.recv(100).decode("utf-8"))
-		return resp
-	
-	def tcpTxRx(self, cmd):			
-		self.tcpTx(cmd)
-		return (+ self.tcpRx())
-	
-	
-	def init(self):
-		# rm = pyvisa.ResourceManager('@py')
-		# visaAddress = "TCPIP0::" + ip + "::inst0::INSTR"
-		# specki = rm.open_resource(visaAddress,chunk_size=8000,timeout=2000) # , delay=1.2)	# ... seconds
-		self.dev = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.dev.connect((self.ip, self.port))
-		self.analyzerConnected = True
+		self.freeSpeckKeys()
+	def run(self):				self.tcpTx(":INITiate:CONTinuous 1");			self.freeSpeckKeys()
+	def getID(self):			return self.tcpTxRx("*IDN?").strip()
+
