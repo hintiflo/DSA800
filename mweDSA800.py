@@ -16,7 +16,7 @@ print(dsa.getSweepTime(), flush = True)
 # dsa.connect()
 # print(dsa.getID())
 
-# dsa.screenshot("toast")
+# dsa.screenshot("test")
 
 dsa.setDetPosPeak()
 sleep(1)
